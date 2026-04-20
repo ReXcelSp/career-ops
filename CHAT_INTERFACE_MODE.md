@@ -2,6 +2,8 @@
 
 This workflow lets you use Career-Ops without Claude CLI, Gemini CLI, or ChatGPT API keys.
 
+Current search bias: senior data science, analytics engineering, data engineering, AI automation, ML, and selective governance roles that are remote from Lagos, EMEA-friendly, CET/GMT aligned, or globally open.
+
 ## What works in chat-only mode
 
 - Setup and configuration
@@ -34,6 +36,8 @@ Run from the career-ops folder.
 
 - Scan for new jobs (zero-token API scanner)
   - npm run scan
+
+The scanner works best with API-compatible Greenhouse, Ashby, and Lever boards. Your portals config is now biased toward remote-first and EMEA-friendly companies on those board types.
 
 - Check pipeline consistency
   - npm run verify
