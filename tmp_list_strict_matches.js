@@ -33,7 +33,7 @@ function detectApi(company) {
 }
 
 function normalizeKeywords(list) {
-  return (list || []).map(k => String(k).toLowerCase().trim()).filter(Boolean);
+  return (list || []).map((keyword) => String(keyword).toLowerCase().trim()).filter(Boolean);
 }
 
 function buildTitleFilter(titleFilter) {
@@ -41,8 +41,8 @@ function buildTitleFilter(titleFilter) {
   const negative = normalizeKeywords(titleFilter?.negative);
   return (title) => {
     const lower = String(title || '').toLowerCase();
-    const hasPositive = positive.length === 0 || positive.some(k => lower.includes(k));
-    const hasNegative = negative.some(k => lower.includes(k));
+    const hasPositive = positive.length === 0 || positive.some((keyword) => lower.includes(keyword));
+    const hasNegative = negative.some((keyword) => lower.includes(keyword));
     return hasPositive && !hasNegative;
   };
 }
@@ -58,12 +58,16 @@ function buildLocationFilter(locationFilter) {
     const locationText = String(location || '').toLowerCase();
     const companyText = [company?.notes || '', company?.name || ''].join(' ').toLowerCase();
     const haystack = `${locationText} ${companyText}`;
+
     if (!haystack.trim()) return false;
-    if (negativeKeywords.some(k => haystack.includes(k))) return false;
-    const hasGlobal = globalKeywords.some(k => locationText.includes(k));
-    const hasRemote = remoteKeywords.some(k => locationText.includes(k)) || companyRemoteKeywords.some(k => companyText.includes(k));
-    const hasRegion = regionKeywords.some(k => locationText.includes(k));
-    return hasGlobal || (hasRemote && hasRegion);
+    if (negativeKeywords.some((keyword) => haystack.includes(keyword))) return false;
+
+    const hasGlobal = globalKeywords.some((keyword) => locationText.includes(keyword));
+    const hasRemote = remoteKeywords.some((keyword) => locationText.includes(keyword));
+    const companyFeelsRemote = companyRemoteKeywords.some((keyword) => companyText.includes(keyword));
+    const hasRegion = regionKeywords.some((keyword) => locationText.includes(keyword));
+
+    return hasGlobal || (hasRemote && hasRegion) || (companyFeelsRemote && hasRegion);
   };
 }
 
@@ -74,66 +78,50 @@ function normalizeDate(value) {
 }
 
 function parseGreenhouse(json, companyName) {
-  return (json.jobs || []).map(j => ({
-    title: j.title || '',
-    url: j.absolute_url || '',
+  return (json.jobs || []).map((job) => ({
+    title: job.title || '',
+    url: job.absolute_url || '',
     company: companyName,
-    location: j.location?.name || '',
-    postedAt: normalizeDate(j.updated_at || j.created_at || j.first_published),
+    location: job.location?.name || '',
+    postedAt: normalizeDate(job.updated_at || job.created_at || job.first_published),
   }));
 }
 
 function parseAshby(json, companyName) {
-  return (json.jobs || []).map(j => ({
-    title: j.title || '',
-    url: j.jobUrl || '',
+  return (json.jobs || []).map((job) => ({
+    title: job.title || '',
+    url: job.jobUrl || '',
     company: companyName,
-    location: typeof j.location === 'string' ? j.location : (j.location?.locationName || ''),
-    postedAt: normalizeDate(j.publishedAt || j.createdAt || j.updatedAt),
+    location: typeof job.location === 'string' ? job.location : (job.location?.locationName || ''),
+    postedAt: normalizeDate(job.publishedAt || job.createdAt || job.updatedAt),
   }));
 }
 
-function parseLever(json, companyName) {
-  if (!Array.isArray(json)) return [];
-  return json.map(j => ({
-    title: j.text || '',
-    url: j.hostedUrl || '',
-    company: companyName,
-    location: j.categories?.location || '',
-    postedAt: normalizeDate(j.createdAt),
-  }));
-}
-
-const parsers = { greenhouse: parseGreenhouse, ashby: parseAshby, lever: parseLever };
 const titleFilter = buildTitleFilter(config.title_filter);
 const locationFilter = buildLocationFilter(config.location_filter);
 const companies = (config.tracked_companies || [])
-  .filter(c => c.enabled !== false)
-  .map(c => ({ ...c, _api: detectApi(c) }))
-  .filter(c => c._api);
+  .filter((company) => company.enabled !== false)
+  .map((company) => ({ ...company, _api: detectApi(company) }))
+  .filter((company) => company._api !== null);
 
-const matches = [];
+const parsers = {
+  greenhouse: parseGreenhouse,
+  ashby: parseAshby,
+};
+
 for (const company of companies) {
   try {
-    const response = await fetch(company._api.url, { signal: AbortSignal.timeout(30000) });
+    const response = await fetch(company._api.url, { signal: AbortSignal.timeout(45000) });
     if (!response.ok) continue;
     const json = await response.json();
-    const jobs = parsers[company._api.type](json, company.name);
+    const jobs = parsers[company._api.type]?.(json, company.name) || [];
     for (const job of jobs) {
       if (!titleFilter(job.title)) continue;
       if (!locationFilter(job.location, company)) continue;
-      matches.push(job);
+      const date = job.postedAt ? job.postedAt.toISOString().slice(0, 10) : 'unknown-date';
+      console.log(`${date} | ${job.company} | ${job.title} | ${job.location || 'N/A'} | ${job.url}`);
     }
-  } catch {}
-}
-
-matches.sort((a, b) => {
-  const left = a.postedAt ? a.postedAt.getTime() : 0;
-  const right = b.postedAt ? b.postedAt.getTime() : 0;
-  return right - left;
-});
-
-for (const job of matches) {
-  const date = job.postedAt ? job.postedAt.toISOString().slice(0, 10) : 'unknown-date';
-  console.log(`${date} | ${job.company} | ${job.title} | ${job.location || 'N/A'} | ${job.url}`);
+  } catch {
+    // Best-effort helper script.
+  }
 }

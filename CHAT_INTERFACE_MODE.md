@@ -67,16 +67,20 @@ Use these exact prompt patterns in this chat:
 - Scan and list all matches
   - Run scan, then list all new pipeline jobs that match both my role titles and my location policy.
 
+- Run comprehensive discovery
+  - Run `npm run discover:matches` to produce both strict and reviewable queues for all title-matching roles in the last 90 days.
+
 - Keep system clean
   - Run verify, normalize, dedup, and summarize what changed.
 
 ## Recommended operating routine
 
 1. Morning: run scan and list all strict matches
-2. Evaluate every strict-match role whose requirements are acceptable
-3. Generate one tailored PDF per high-score role
-4. Track status changes in applications tracker
-5. Weekly: run verify, normalize, dedup
+2. Run comprehensive discovery to build strict and reviewable queues
+3. Evaluate every strict-match role whose requirements are acceptable, then move into reviewable matches
+4. Generate one tailored PDF per high-score role
+5. Track status changes in applications tracker
+6. Weekly: run verify, normalize, dedup
 
 ## Files that matter most
 
