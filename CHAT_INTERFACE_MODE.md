@@ -2,7 +2,7 @@
 
 This workflow lets you use Career-Ops without Claude CLI, Gemini CLI, or ChatGPT API keys.
 
-Current search bias: senior data science, analytics engineering, data engineering, AI automation, ML, and selective governance roles that are remote from Lagos, EMEA-friendly, CET/GMT aligned, or globally open.
+Current search bias: only keep roles that match both your target role titles and your location policy: remote from Lagos, EMEA-friendly, CET/GMT aligned, or globally open.
 
 ## What works in chat-only mode
 
@@ -64,16 +64,16 @@ Use these exact prompt patterns in this chat:
 - Generate tailored PDF for a company
   - Use current cv.md and generate ATS PDF tailored to Oyster from latest report.
 
-- Scan and shortlist
-  - Run scan, then rank top 10 new pipeline jobs by fit for my profile.
+- Scan and list all matches
+  - Run scan, then list all new pipeline jobs that match both my role titles and my location policy.
 
 - Keep system clean
   - Run verify, normalize, dedup, and summarize what changed.
 
 ## Recommended operating routine
 
-1. Morning: run scan and shortlist
-2. Evaluate top roles one by one
+1. Morning: run scan and list all strict matches
+2. Evaluate every strict-match role whose requirements are acceptable
 3. Generate one tailored PDF per high-score role
 4. Track status changes in applications tracker
 5. Weekly: run verify, normalize, dedup

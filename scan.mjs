@@ -4,8 +4,8 @@
  * scan.mjs — Zero-token portal scanner
  *
  * Fetches Greenhouse, Ashby, and Lever APIs directly, applies title
- * filters from portals.yml, deduplicates against existing history,
- * and appends new offers to pipeline.md + scan-history.tsv.
+ * and location filters from portals.yml, deduplicates against existing
+ * history, and appends new offers to pipeline.md + scan-history.tsv.
  *
  * Zero Claude API tokens — pure HTTP + JSON.
  *
@@ -122,15 +122,43 @@ async function fetchJson(url) {
 
 // ── Title filter ────────────────────────────────────────────────────
 
+function normalizeKeywords(list) {
+  return (list || []).map(k => String(k).toLowerCase().trim()).filter(Boolean);
+}
+
 function buildTitleFilter(titleFilter) {
-  const positive = (titleFilter?.positive || []).map(k => k.toLowerCase());
-  const negative = (titleFilter?.negative || []).map(k => k.toLowerCase());
+  const positive = normalizeKeywords(titleFilter?.positive);
+  const negative = normalizeKeywords(titleFilter?.negative);
 
   return (title) => {
-    const lower = title.toLowerCase();
+    const lower = String(title || '').toLowerCase();
     const hasPositive = positive.length === 0 || positive.some(k => lower.includes(k));
     const hasNegative = negative.some(k => lower.includes(k));
     return hasPositive && !hasNegative;
+  };
+}
+
+function buildLocationFilter(locationFilter) {
+  const remoteKeywords = normalizeKeywords(locationFilter?.remote_keywords);
+  const regionKeywords = normalizeKeywords(locationFilter?.region_keywords);
+  const globalKeywords = normalizeKeywords(locationFilter?.global_keywords);
+  const negativeKeywords = normalizeKeywords(locationFilter?.negative);
+  const companyRemoteKeywords = ['remote-first', 'distributed'];
+
+  return (location, company) => {
+    const locationText = String(location || '').toLowerCase();
+    const companyText = [company?.notes || '', company?.name || ''].join(' ').toLowerCase();
+    const haystack = `${locationText} ${companyText}`;
+
+    if (!haystack.trim()) return false;
+    if (negativeKeywords.some(k => haystack.includes(k))) return false;
+
+    const hasGlobal = globalKeywords.some(k => locationText.includes(k));
+    const hasRemote = remoteKeywords.some(k => locationText.includes(k))
+      || companyRemoteKeywords.some(k => companyText.includes(k));
+    const hasRegion = regionKeywords.some(k => locationText.includes(k));
+
+    return hasGlobal || (hasRemote && hasRegion);
   };
 }
 
@@ -198,7 +226,7 @@ function appendToPipeline(offers) {
     const procIdx = text.indexOf('## Procesadas');
     const insertAt = procIdx === -1 ? text.length : procIdx;
     const block = `\n${marker}\n\n` + offers.map(o =>
-      `- [ ] ${o.url} | ${o.company} | ${o.title}`
+      `- [ ] ${o.url} | ${o.company} | ${o.title} | ${o.location || 'N/A'}`
     ).join('\n') + '\n\n';
     text = text.slice(0, insertAt) + block + text.slice(insertAt);
   } else {
@@ -208,7 +236,7 @@ function appendToPipeline(offers) {
     const insertAt = nextSection === -1 ? text.length : nextSection;
 
     const block = '\n' + offers.map(o =>
-      `- [ ] ${o.url} | ${o.company} | ${o.title}`
+      `- [ ] ${o.url} | ${o.company} | ${o.title} | ${o.location || 'N/A'}`
     ).join('\n') + '\n';
     text = text.slice(0, insertAt) + block + text.slice(insertAt);
   }
@@ -264,6 +292,7 @@ async function main() {
   const config = parseYaml(readFileSync(PORTALS_PATH, 'utf-8'));
   const companies = config.tracked_companies || [];
   const titleFilter = buildTitleFilter(config.title_filter);
+  const locationFilter = buildLocationFilter(config.location_filter);
 
   // 2. Filter to enabled companies with detectable APIs
   const targets = companies
@@ -284,7 +313,8 @@ async function main() {
   // 4. Fetch all APIs
   const date = new Date().toISOString().slice(0, 10);
   let totalFound = 0;
-  let totalFiltered = 0;
+  let totalTitleFiltered = 0;
+  let totalLocationFiltered = 0;
   let totalDupes = 0;
   const newOffers = [];
   const errors = [];
@@ -298,7 +328,11 @@ async function main() {
 
       for (const job of jobs) {
         if (!titleFilter(job.title)) {
-          totalFiltered++;
+          totalTitleFiltered++;
+          continue;
+        }
+        if (!locationFilter(job.location, company)) {
+          totalLocationFiltered++;
           continue;
         }
         if (seenUrls.has(job.url)) {
@@ -334,7 +368,8 @@ async function main() {
   console.log(`${'━'.repeat(45)}`);
   console.log(`Companies scanned:     ${targets.length}`);
   console.log(`Total jobs found:      ${totalFound}`);
-  console.log(`Filtered by title:     ${totalFiltered} removed`);
+  console.log(`Filtered by title:     ${totalTitleFiltered} removed`);
+  console.log(`Filtered by location:  ${totalLocationFiltered} removed`);
   console.log(`Duplicates:            ${totalDupes} skipped`);
   console.log(`New offers added:      ${newOffers.length}`);
 
