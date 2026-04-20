@@ -2,6 +2,8 @@
 
 This folder was initialized from `santifer/career-ops` and personalized for your existing application workflow.
 
+Current search bias: senior data, analytics engineering, AI automation, ML, and selective governance roles that are remote from Lagos, EMEA-friendly, CET/GMT aligned, or globally open.
+
 ## What was configured
 - `config/profile.yml` was filled with your profile and role targets.
 - `cv.md` was synthesized from your existing resumes.
